@@ -1,4 +1,14 @@
-import { probabilityTables, enemyCategories, spellTable, type Rank, type ProbabilityTable, type Rarity, type EnemyCategory, type LootItem } from '../data/lootTables';
+import { 
+  type Rank, 
+  type ProbabilityTable, 
+  type Rarity, 
+  type EnemyCategory, 
+  type LootItem,
+  type SpellLevel,
+  type ProbabilityRow
+} from '../data/lootTables';
+
+export type ItemCondition = 'intatto' | 'danneggiato' | 'inutilizzabile' | 'maledetto';
 
 export interface RollResult {
   id: string;
@@ -17,12 +27,17 @@ export interface RollResult {
   // Step 2
   d8Roll?: number;
   lootItem?: LootItem;
+  // Condition
+  condition?: ItemCondition;
   // Spell (if applicable)
   spellLevelRoll?: number;
   spellLevel?: number;
   spellRoll?: number;
   spellName?: string;
   spellNameEN?: string;
+  // Multi-roll index
+  rollIndex?: number;
+  totalRolls?: number;
 }
 
 function rollDie(sides: number): number {
@@ -44,7 +59,6 @@ export function rollD4(): number {
 function parseRange(rangeStr: string): { min: number; max: number } | null {
   if (rangeStr === '—' || rangeStr === '-') return null;
   
-  // Handle "00" as 100
   const cleaned = rangeStr.replace(/00/g, '100');
   
   if (cleaned.includes('-')) {
@@ -58,8 +72,13 @@ function parseRange(rangeStr: string): { min: number; max: number } | null {
   return { min: val, max: val };
 }
 
-export function determineRarity(d100: number, rank: Rank, probTable: ProbabilityTable): Rarity | 'Niente' {
-  const table = probabilityTables[probTable];
+export function determineRarity(
+  d100: number, 
+  rank: Rank, 
+  probTables: Record<ProbabilityTable, ProbabilityRow[]>,
+  probTableName: ProbabilityTable
+): Rarity | 'Niente' {
+  const table = probTables[probTableName];
   
   const rankKey = rank === 'Minion' ? 'minionRange' : rank === 'Elite' ? 'eliteRange' : 'bossRange';
   
@@ -88,7 +107,7 @@ export function needsLuckTest(d100: number): boolean {
 }
 
 export function applyLuckTest(rarity: Rarity | 'Niente', d4: number): { upgraded: boolean; newRarity: Rarity | 'Niente' } {
-  if (d4 > 2) { // Above average
+  if (d4 > 2) {
     const upgradeMap: Record<string, Rarity> = {
       'Comune': 'Non Comune',
       'Non Comune': 'Raro',
@@ -102,21 +121,21 @@ export function applyLuckTest(rarity: Rarity | 'Niente', d4: number): { upgraded
   return { upgraded: false, newRarity: rarity };
 }
 
-// Rarity order for reference
-// const rarityOrder: (Rarity | 'Niente')[] = ['Niente', 'Comune', 'Non Comune', 'Raro', 'Epico', 'Leggendario'];
-
 export function performFullRoll(
   rank: Rank,
-  categoryId: string,
+  category: EnemyCategory,
   playerName: string,
-  _customItems?: LootItem[]
+  condition: ItemCondition | null,
+  probTables: Record<ProbabilityTable, ProbabilityRow[]>,
+  spellTableData: SpellLevel[],
+  rollIndex?: number,
+  totalRolls?: number
 ): RollResult {
-  const category = enemyCategories.find(c => c.id === categoryId)!;
   const probTable = category.probabilityTable;
   
   // Step 1: Roll d100
   const d100 = rollD100();
-  let rarity = determineRarity(d100, rank, probTable);
+  let rarity = determineRarity(d100, rank, probTables, probTable);
   
   // Luck test
   let luckyD4Roll: number | undefined;
@@ -138,7 +157,6 @@ export function performFullRoll(
     d8Roll = rollD8();
     const rarityTable = category.rarities.find(r => r.rarity === finalRarity);
     if (rarityTable) {
-      // Check custom items first
       lootItem = rarityTable.items.find(i => i.roll === d8Roll);
     }
   }
@@ -151,7 +169,6 @@ export function performFullRoll(
   let spellNameEN: string | undefined;
   
   if (lootItem && (lootItem.name.toLowerCase().includes('pergamena incantesimo') || lootItem.name.toLowerCase().includes('libro degli incantesimi'))) {
-    // Determine spell level based on rarity
     if (finalRarity === 'Non Comune') {
       spellLevel = 1;
     } else if (finalRarity === 'Raro') {
@@ -162,11 +179,11 @@ export function performFullRoll(
       spellLevel = spellLevelRoll === 1 ? 4 : 5;
     } else if (finalRarity === 'Leggendario') {
       spellLevelRoll = rollDie(4);
-      spellLevel = 5 + spellLevelRoll; // 6-9
+      spellLevel = 5 + spellLevelRoll;
     }
     
     if (spellLevel) {
-      const spellLevelData = spellTable.find(s => s.level === spellLevel);
+      const spellLevelData = spellTableData.find(s => s.level === spellLevel);
       if (spellLevelData) {
         const dieSides = parseInt(spellLevelData.die.replace('d', ''));
         spellRoll = rollDie(dieSides);
@@ -193,10 +210,43 @@ export function performFullRoll(
     finalRarity,
     d8Roll,
     lootItem,
+    condition: condition || undefined,
     spellLevelRoll,
     spellLevel,
     spellRoll,
     spellName,
     spellNameEN,
+    rollIndex,
+    totalRolls,
   };
+}
+
+export function performMultipleRolls(
+  rank: Rank,
+  categories: EnemyCategory[],
+  playerName: string,
+  condition: ItemCondition | null,
+  multiplier: number,
+  probTables: Record<ProbabilityTable, ProbabilityRow[]>,
+  spellTableData: SpellLevel[]
+): RollResult[] {
+  const results: RollResult[] = [];
+  
+  for (let i = 0; i < multiplier; i++) {
+    // For each roll, pick a random category from selected ones
+    const category = categories[Math.floor(Math.random() * categories.length)];
+    const result = performFullRoll(
+      rank,
+      category,
+      playerName,
+      condition,
+      probTables,
+      spellTableData,
+      i + 1,
+      multiplier
+    );
+    results.push(result);
+  }
+  
+  return results;
 }

@@ -6,9 +6,10 @@ interface DiceAnimationProps {
   label: string;
   isRolling: boolean;
   color?: string;
+  small?: boolean;
 }
 
-export default function DiceAnimation({ value, sides, label, isRolling, color = 'from-red-600 to-red-800' }: DiceAnimationProps) {
+export default function DiceAnimation({ value, sides, label, isRolling, color = 'from-red-600 to-red-800', small = false }: DiceAnimationProps) {
   const [displayValue, setDisplayValue] = useState(value);
 
   useEffect(() => {
@@ -28,6 +29,23 @@ export default function DiceAnimation({ value, sides, label, isRolling, color = 
       setDisplayValue(value);
     }
   }, [isRolling, value, sides]);
+
+  if (small) {
+    return (
+      <div className="flex flex-col items-center gap-0.5">
+        <div
+          className={`w-8 h-8 bg-gradient-to-br ${color} rounded-lg flex items-center justify-center shadow ${
+            isRolling ? 'animate-bounce' : ''
+          }`}
+        >
+          <span className="text-white font-bold text-xs font-mono">
+            {displayValue}
+          </span>
+        </div>
+        <span className="text-[9px] text-gray-500 font-mono">{label}</span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center gap-1">
