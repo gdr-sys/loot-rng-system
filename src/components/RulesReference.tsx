@@ -56,6 +56,10 @@ export default function RulesReference({ lang }: RulesReferenceProps) {
               <span className="text-red-400 font-bold shrink-0">INUTILIZZABILE</span>
               <span>— Oggetto distrutto dallo scontro o in condizioni pessime. Non recuperabile.</span>
             </div>
+            <div className="flex gap-3 items-start">
+              <span className="text-purple-400 font-bold shrink-0">MALEDETTO</span>
+              <span>— Oggetto corrotto da energie oscure. Tipico di bottini provenienti da Streghe, Diavoli, Lich, Non Morti, Draghi cromatici o altre creature maligne. Richiede purificazione o comporta effetti collaterali.</span>
+            </div>
           </div>
         </section>
 
@@ -125,6 +129,10 @@ export default function RulesReference({ lang }: RulesReferenceProps) {
           <div className="flex gap-3 items-start">
             <span className="text-red-400 font-bold shrink-0">UNUSABLE</span>
             <span>— Item destroyed by combat or already in poor condition. Not recoverable.</span>
+          </div>
+          <div className="flex gap-3 items-start">
+            <span className="text-purple-400 font-bold shrink-0">CURSED</span>
+            <span>— Item corrupted by dark energies. Typical of loot from Hags, Devils, Liches, Undead, Chromatic Dragons, or other malevolent creatures. Requires purification or carries side effects.</span>
           </div>
         </div>
       </section>
